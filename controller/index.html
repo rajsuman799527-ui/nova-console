@@ -45,7 +45,7 @@ h1{font-size:34px;letter-spacing:-.03em}p{font-size:16px}
 <script src="../shared/config.js"></script>
 <script>
 const {SUPABASE_URL,SUPABASE_ANON_KEY,COLORS}=CFG,$=id=>document.getElementById(id);
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:60}}});
 const id=sessionStorage.nid||(sessionStorage.nid=Math.random().toString(36).slice(2,10));
 let ch=null,slot=-1,view='join';
 const show=v=>{view=v;['join','wait','remote','pad'].forEach(s=>$(s).classList.toggle('hide',s!==v))};
@@ -62,7 +62,7 @@ function join(code){
  ch=sb.channel('room:'+code,{config:{broadcast:{self:false},presence:{key:id}}});
  let got=false;
  ch.on('broadcast',{event:'roster'},({payload:r})=>{got=true;apply(r)});
- ch.subscribe(async(s,e)=>{if(s!=='SUBSCRIBED'&&s!=='CLOSED'){$('err').textContent='Connection problem: '+s+(e?' '+(e.message||e):'')}if(s==='SUBSCRIBED'){await ch.track({id,t:Date.now()});
+ ch.subscribe(async(s,e)=>{if(s!=='SUBSCRIBED'&&s!=='CLOSED'){$('err').textContent='Connection problem: '+s+(e?' '+(e.message||e):'')}if(s==='SUBSCRIBED'){const T=+sessionStorage.nt||(sessionStorage.nt=Date.now()),hi=()=>ch.send({type:'broadcast',event:'hello',payload:{id,t:T}});hi();clearInterval(window.hb);window.hb=setInterval(hi,2000);
   setTimeout(()=>{if(!got){$('err').textContent='No TV found. Connected to Supabase, but the TV did not answer. Refresh the TV page and use its new code.';sb.removeChannel(ch);ins.forEach(x=>x.value='');ins[0].focus();show('join')}},5000)}});
 }
 function badge(el){const c=COLORS[slot];el.style.setProperty('--c',c);el.innerHTML=`<i></i>Player ${slot+1}`;document.documentElement.style.setProperty('--c',c);document.documentElement.style.setProperty('--acc',c)}
