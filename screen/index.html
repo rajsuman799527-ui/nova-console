@@ -38,7 +38,7 @@ main{position:relative;min-height:0}main>section{position:absolute;inset:0}
 <script src="../shared/config.js"></script>
 <script>
 const {SUPABASE_URL,SUPABASE_ANON_KEY,MAX_PLAYERS,COLORS,GAMES}=CFG,$=id=>document.getElementById(id);
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:60}}});
 let code=sessionStorage.nova||(sessionStorage.nova=String(100000+Math.floor(Math.random()*900000)));
 let players=[],mode='lobby',sel=0,game=null;const S={};
 const base=location.origin+location.pathname.replace('screen/','');
@@ -57,10 +57,16 @@ function render(){
  if(players.length&&mode==='lobby')show('menu');
  if(!players.length&&mode!=='lobby')show('lobby');
 }
-ch.on('presence',{event:'sync'},()=>{
- const all=Object.values(ch.presenceState()).flat().sort((a,b)=>a.t-b.t);
- players=all.slice(0,MAX_PLAYERS).map((p,i)=>({id:p.id,slot:i}));window.full=all.slice(MAX_PLAYERS).map(p=>p.id);
- players.forEach(p=>S[p.slot]=S[p.slot]||{x:.5,y:.5,k:{},L:{x:0,y:0}});render();cast()});
+const seen={};
+function sync(){
+ const now=Date.now();for(const k in seen)if(now-seen[k].last>7000)delete seen[k];
+ const all=Object.values(seen).sort((a,b)=>a.t-b.t);
+ const np=all.slice(0,MAX_PLAYERS).map((p,i)=>({id:p.id,slot:i}));window.full=all.slice(MAX_PLAYERS).map(p=>p.id);
+ const changed=JSON.stringify(np)!==JSON.stringify(players);players=np;
+ players.forEach(p=>S[p.slot]=S[p.slot]||{x:.5,y:.5,k:{},L:{x:0,y:0}});
+ if(changed)render();cast()}
+ch.on('broadcast',{event:'hello'},({payload:m})=>{if(!seen[m.id])seen[m.id]={id:m.id,t:m.t};seen[m.id].last=Date.now();sync()});
+setInterval(sync,2000);
 ch.on('broadcast',{event:'in'},({payload:m})=>{
  const p=players.find(p=>p.id===m.id);if(!p)return;const s=p.slot,st=S[s];
  if(m.t==='stick'&&m.s==='L')st.L={x:m.x,y:m.y};
