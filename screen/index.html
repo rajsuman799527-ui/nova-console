@@ -18,8 +18,9 @@ main{position:relative;min-height:0}main>section{position:absolute;inset:0}
 .card.sel{opacity:1;transform:scale(1);border-color:rgba(255,255,255,.45);box-shadow:0 0 80px -20px var(--g)}
 .card h3{font-size:clamp(20px,2.4vw,40px);position:relative}.card span{position:relative;margin-top:6px;font-size:clamp(13px,1.1vw,18px)}
 .hint{color:var(--mut);font-size:clamp(13px,1.1vw,18px)}
-#game canvas{width:100%;height:100%;border-radius:var(--r);background:#050505;border:1px solid var(--line)}
-#game .hint{position:absolute;left:24px;bottom:18px}
+#game #cv{width:100%;height:100%;border-radius:var(--r);background:#050505;border:1px solid var(--line)}
+#gx{position:absolute;inset:0;border-radius:var(--r);overflow:hidden;background:#000;border:1px solid var(--line)}
+#game .hint{position:absolute;left:24px;bottom:18px;z-index:5}
 #dock{display:flex;gap:1.2vw;justify-content:center}
 .slot{padding:12px 22px;display:flex;align-items:center;gap:12px;font-weight:600;font-size:clamp(13px,1.2vw,20px);opacity:.35;transition:.3s}
 .slot.on{opacity:1}.slot i{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c)}
@@ -30,12 +31,14 @@ main{position:relative;min-height:0}main>section{position:absolute;inset:0}
 <main>
  <section id="lobby" class="in"><div><h1>Scan to play</h1><p class="mut">Open <b id="host"></b> on your phone and enter</p><div id="code"></div></div><div id="qr" class="glass"></div></section>
  <section id="menu" class="hide"><div><h2>Choose a game</h2><p class="mut" id="who"></p></div><div id="cards"></div><p class="hint">Left and Right to browse, Cross to play</p></section>
- <section id="game" class="hide"><canvas id="cv"></canvas><p class="hint">Player 1: press Select to go back</p></section>
+ <section id="game" class="hide"><canvas id="cv"></canvas><div id="gx" style="display:none"></div><p class="hint">Player 1: press Select to go back</p></section>
 </main>
 <footer id="dock"></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../games/flappy3d.js"></script>
 <script>
 const {SUPABASE_URL,SUPABASE_ANON_KEY,MAX_PLAYERS,COLORS,GAMES}=CFG,$=id=>document.getElementById(id);
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:60}}});
@@ -49,7 +52,17 @@ $('cards').innerHTML=GAMES.map((g,i)=>`<div class="card glass" style="--g:${COLO
 const ch=sb.channel('room:'+code,{config:{broadcast:{self:false}}});
 const send=(e,p)=>ch.send({type:'broadcast',event:e,payload:p});
 const cast=()=>send('roster',{players,mode,game,full:window.full||[]});
-function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');cast()}
+// ---- Game host: starts/stops games that register themselves in window.NovaGames[id] ----
+const gx=$('gx'),ZERO={k:{},L:{x:0,y:0}};let live=null;
+const gameCtx={get container(){return gx},get players(){return players},colors:COLORS,
+ input:s=>S[s]||ZERO,exit:()=>{game=null;show('menu')}};
+function gameSync(){
+ const want=(mode==='game'&&game&&window.NovaGames&&window.NovaGames[game])?game:null;
+ $('cv').style.display=(mode==='game'&&!want)?'':'none';   // test arena for every game without a module
+ gx.style.display=want?'block':'none';                      // must be visible BEFORE start() so it has a size
+ if(live&&live!==want){try{window.NovaGames[live].stop()}catch(e){console.error(e)}live=null}
+ if(want&&!live){try{window.NovaGames[want].start(gameCtx);live=want}catch(e){console.error(e)}}}
+function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');gameSync();cast()}
 function render(){
  $('dock').innerHTML=Array.from({length:MAX_PLAYERS},(_,i)=>{const p=players[i];return `<div class="slot glass ${p?'on':''}" style="--c:${COLORS[i]}"><i></i>Player ${i+1}${i===0&&p?' <small>Remote</small>':''}</div>`}).join('');
  $('who').textContent=players.length?'Player 1 is in control':'';
@@ -64,13 +77,15 @@ function sync(){
  const np=all.slice(0,MAX_PLAYERS).map((p,i)=>({id:p.id,slot:i}));window.full=all.slice(MAX_PLAYERS).map(p=>p.id);
  const changed=JSON.stringify(np)!==JSON.stringify(players);players=np;
  players.forEach(p=>S[p.slot]=S[p.slot]||{x:.5,y:.5,k:{},L:{x:0,y:0}});
- if(changed)render();cast()}
+ if(changed){render();if(live)try{window.NovaGames[live].onPlayers(players)}catch(e){console.error(e)}}cast()}
 ch.on('broadcast',{event:'hello'},({payload:m})=>{if(!seen[m.id])seen[m.id]={id:m.id,t:m.t};seen[m.id].last=Date.now();sync()});
 setInterval(sync,2000);
 ch.on('broadcast',{event:'in'},({payload:m})=>{
  const p=players.find(p=>p.id===m.id);if(!p)return;const s=p.slot,st=S[s];
  if(m.t==='stick'&&m.s==='L')st.L={x:m.x,y:m.y};
  if(m.t==='btn'){st.k[m.k]=m.d;if(!m.d)return;
+  // d=1 edge: hand the press to the running game so a quick tap is never missed
+  if(mode==='game'&&live){const g=window.NovaGames[live];if(g&&g.onButton)try{g.onButton(s,m.k)}catch(e){console.error(e)}}
   if(s===0&&mode==='menu'){
    if(m.k==='left')sel=(sel+GAMES.length-1)%GAMES.length;
    if(m.k==='right')sel=(sel+1)%GAMES.length;
@@ -79,7 +94,7 @@ ch.on('broadcast',{event:'in'},({payload:m})=>{
 ch.subscribe((s,e)=>{$('st').textContent=s==='SUBSCRIBED'?'Live':'Connection problem: '+s+(e?' '+(e.message||e):'');$('st').style.color=s==='SUBSCRIBED'?'#00e0a4':'#ff5c8a'});
 // Test Arena: har player ek rang ka orb, left stick ya D-pad se chalta hai
 const cv=$('cv'),cx=cv.getContext('2d');
-(function loop(){requestAnimationFrame(loop);if(mode!=='game')return;
+(function loop(){requestAnimationFrame(loop);if(mode!=='game'||live)return;
  const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;cx.setTransform(d,0,0,d,0,0);
  players.forEach(p=>{const st=S[p.slot],k=st.k;
   const dx=st.L.x||((k.right?1:0)-(k.left?1:0)),dy=st.L.y||((k.down?1:0)-(k.up?1:0));
