@@ -26,7 +26,7 @@ main{position:relative;min-height:0}main>section{position:absolute;inset:0}
 .slot small{color:var(--mut);font-weight:500}
 @media(max-width:800px){#lobby{flex-direction:column;gap:4vh;text-align:center}#cards{flex-direction:column}.card{max-width:none;aspect-ratio:auto}}
 </style></head><body>
-<header><div class="logo"><i></i>NOVA</div><div id="chip" class="glass hide"></div></header>
+<header><div class="logo"><i></i>NOVA</div><div id="st" class="mut" style="font-size:14px">Connecting...</div><div id="chip" class="glass hide"></div></header>
 <main>
  <section id="lobby" class="in"><div><h1>Scan to play</h1><p class="mut">Open <b id="host"></b> on your phone and enter</p><div id="code"></div></div><div id="qr" class="glass"></div></section>
  <section id="menu" class="hide"><div><h2>Choose a game</h2><p class="mut" id="who"></p></div><div id="cards"></div><p class="hint">Left and Right to browse, Cross to play</p></section>
@@ -70,7 +70,7 @@ ch.on('broadcast',{event:'in'},({payload:m})=>{
    if(m.k==='right')sel=(sel+1)%GAMES.length;
    if(m.k==='cr'||m.k==='start'){game=GAMES[sel].id;show('game')}render()}
   else if(s===0&&mode==='game'&&m.k==='select'){game=null;show('menu')}}});
-ch.subscribe();
+ch.subscribe((s,e)=>{$('st').textContent=s==='SUBSCRIBED'?'Live':'Connection problem: '+s+(e?' '+(e.message||e):'');$('st').style.color=s==='SUBSCRIBED'?'#00e0a4':'#ff5c8a'});
 // Test Arena: har player ek rang ka orb, left stick ya D-pad se chalta hai
 const cv=$('cv'),cx=cv.getContext('2d');
 (function loop(){requestAnimationFrame(loop);if(mode!=='game')return;
