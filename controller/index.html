@@ -62,8 +62,8 @@ function join(code){
  ch=sb.channel('room:'+code,{config:{broadcast:{self:false},presence:{key:id}}});
  let got=false;
  ch.on('broadcast',{event:'roster'},({payload:r})=>{got=true;apply(r)});
- ch.subscribe(async s=>{if(s==='SUBSCRIBED'){await ch.track({id,t:Date.now()});
-  setTimeout(()=>{if(!got){$('err').textContent='No TV found for this code. Check the code and try again.';sb.removeChannel(ch);ins.forEach(x=>x.value='');ins[0].focus();show('join')}},5000)}});
+ ch.subscribe(async(s,e)=>{if(s!=='SUBSCRIBED'&&s!=='CLOSED'){$('err').textContent='Connection problem: '+s+(e?' '+(e.message||e):'')}if(s==='SUBSCRIBED'){await ch.track({id,t:Date.now()});
+  setTimeout(()=>{if(!got){$('err').textContent='No TV found. Connected to Supabase, but the TV did not answer. Refresh the TV page and use its new code.';sb.removeChannel(ch);ins.forEach(x=>x.value='');ins[0].focus();show('join')}},5000)}});
 }
 function badge(el){const c=COLORS[slot];el.style.setProperty('--c',c);el.innerHTML=`<i></i>Player ${slot+1}`;document.documentElement.style.setProperty('--c',c);document.documentElement.style.setProperty('--acc',c)}
 function apply(r){
