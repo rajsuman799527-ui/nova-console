@@ -1,0 +1,85 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NOVA Console</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<style>
+body{display:grid;grid-template-rows:auto 1fr auto;padding:3vh 4vw;gap:2vh}
+header{display:flex;justify-content:space-between;align-items:center}
+#chip{padding:10px 20px;font-weight:700;font-size:20px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+main{position:relative;min-height:0}main>section{position:absolute;inset:0}
+#lobby{display:flex;align-items:center;justify-content:center;gap:8vw}
+#lobby h1{font-size:clamp(36px,5vw,84px);font-weight:700;letter-spacing:-.04em;line-height:1}
+#lobby p{margin-top:2vh;font-size:clamp(16px,1.6vw,26px)}#lobby b{color:var(--tx)}
+#code{margin-top:4vh;font-size:clamp(56px,9vw,150px);font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums;text-shadow:0 0 60px rgba(139,108,255,.6)}
+#qr{padding:22px;line-height:0}#qr svg{width:clamp(180px,22vw,360px);height:auto;border-radius:12px}
+#menu{display:flex;flex-direction:column;justify-content:center;gap:3vh}
+#menu h2{font-size:clamp(32px,4vw,64px);letter-spacing:-.03em}
+#cards{display:flex;gap:2vw}
+.card{flex:1;max-width:30vw;aspect-ratio:3/4;padding:2.4vw;display:flex;flex-direction:column;justify-content:flex-end;opacity:.45;transform:scale(.94);transition:.35s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0;background:radial-gradient(80% 60% at 50% 0%,var(--g),transparent 70%);opacity:.35}
+.card.sel{opacity:1;transform:scale(1);border-color:rgba(255,255,255,.45);box-shadow:0 0 80px -20px var(--g)}
+.card h3{font-size:clamp(20px,2.4vw,40px);position:relative}.card span{position:relative;margin-top:6px;font-size:clamp(13px,1.1vw,18px)}
+.hint{color:var(--mut);font-size:clamp(13px,1.1vw,18px)}
+#game canvas{width:100%;height:100%;border-radius:var(--r);background:#050505;border:1px solid var(--line)}
+#game .hint{position:absolute;left:24px;bottom:18px}
+#dock{display:flex;gap:1.2vw;justify-content:center}
+.slot{padding:12px 22px;display:flex;align-items:center;gap:12px;font-weight:600;font-size:clamp(13px,1.2vw,20px);opacity:.35;transition:.3s}
+.slot.on{opacity:1}.slot i{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c)}
+.slot small{color:var(--mut);font-weight:500}
+@media(max-width:800px){#lobby{flex-direction:column;gap:4vh;text-align:center}#cards{flex-direction:column}.card{max-width:none;aspect-ratio:auto}}
+</style></head><body>
+<header><div class="logo"><i></i>NOVA</div><div id="chip" class="glass hide"></div></header>
+<main>
+ <section id="lobby" class="in"><div><h1>Scan to play</h1><p class="mut">Open <b id="host"></b> on your phone and enter</p><div id="code"></div></div><div id="qr" class="glass"></div></section>
+ <section id="menu" class="hide"><div><h2>Choose a game</h2><p class="mut" id="who"></p></div><div id="cards"></div><p class="hint">Left and Right to browse, Cross to play</p></section>
+ <section id="game" class="hide"><canvas id="cv"></canvas><p class="hint">Player 1: press Select to go back</p></section>
+</main>
+<footer id="dock"></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="../shared/config.js"></script>
+<script>
+const {SUPABASE_URL,SUPABASE_ANON_KEY,MAX_PLAYERS,COLORS,GAMES}=CFG,$=id=>document.getElementById(id);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let code=sessionStorage.nova||(sessionStorage.nova=String(100000+Math.floor(Math.random()*900000)));
+let players=[],mode='lobby',sel=0,game=null;const S={};
+const base=location.origin+location.pathname.replace('screen/','');
+$('host').textContent=location.host+location.pathname.replace('screen/','')+'controller';
+const pretty=code.slice(0,3)+' '+code.slice(3);$('code').textContent=pretty;$('chip').textContent=pretty;
+const qr=qrcode(0,'M');qr.addData(base+'controller/?c='+code);qr.make();$('qr').innerHTML=qr.createSvgTag({scalable:true,margin:2});
+$('cards').innerHTML=GAMES.map((g,i)=>`<div class="card glass" style="--g:${COLORS[i%5]}"><h3>${g.name}</h3><span class="mut">${g.tag}</span></div>`).join('');
+const ch=sb.channel('room:'+code,{config:{broadcast:{self:false}}});
+const send=(e,p)=>ch.send({type:'broadcast',event:e,payload:p});
+const cast=()=>send('roster',{players,mode,game,full:window.full||[]});
+function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');cast()}
+function render(){
+ $('dock').innerHTML=Array.from({length:MAX_PLAYERS},(_,i)=>{const p=players[i];return `<div class="slot glass ${p?'on':''}" style="--c:${COLORS[i]}"><i></i>Player ${i+1}${i===0&&p?' <small>Remote</small>':''}</div>`}).join('');
+ $('who').textContent=players.length?'Player 1 is in control':'';
+ [...$('cards').children].forEach((c,i)=>c.classList.toggle('sel',i===sel));
+ if(players.length&&mode==='lobby')show('menu');
+ if(!players.length&&mode!=='lobby')show('lobby');
+}
+ch.on('presence',{event:'sync'},()=>{
+ const all=Object.values(ch.presenceState()).flat().sort((a,b)=>a.t-b.t);
+ players=all.slice(0,MAX_PLAYERS).map((p,i)=>({id:p.id,slot:i}));window.full=all.slice(MAX_PLAYERS).map(p=>p.id);
+ players.forEach(p=>S[p.slot]=S[p.slot]||{x:.5,y:.5,k:{},L:{x:0,y:0}});render();cast()});
+ch.on('broadcast',{event:'in'},({payload:m})=>{
+ const p=players.find(p=>p.id===m.id);if(!p)return;const s=p.slot,st=S[s];
+ if(m.t==='stick'&&m.s==='L')st.L={x:m.x,y:m.y};
+ if(m.t==='btn'){st.k[m.k]=m.d;if(!m.d)return;
+  if(s===0&&mode==='menu'){
+   if(m.k==='left')sel=(sel+GAMES.length-1)%GAMES.length;
+   if(m.k==='right')sel=(sel+1)%GAMES.length;
+   if(m.k==='cr'||m.k==='start'){game=GAMES[sel].id;show('game')}render()}
+  else if(s===0&&mode==='game'&&m.k==='select'){game=null;show('menu')}}});
+ch.subscribe();
+// Test Arena: har player ek rang ka orb, left stick ya D-pad se chalta hai
+const cv=$('cv'),cx=cv.getContext('2d');
+(function loop(){requestAnimationFrame(loop);if(mode!=='game')return;
+ const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;cx.setTransform(d,0,0,d,0,0);
+ players.forEach(p=>{const st=S[p.slot],k=st.k;
+  const dx=st.L.x||((k.right?1:0)-(k.left?1:0)),dy=st.L.y||((k.down?1:0)-(k.up?1:0));
+  st.x=Math.min(1,Math.max(0,st.x+dx*.008));st.y=Math.min(1,Math.max(0,st.y+dy*.008));
+  const px=st.x*r.width,py=st.y*r.height,rad=k.cr?34:24,c=COLORS[p.slot];
+  cx.shadowColor=c;cx.shadowBlur=30;cx.fillStyle=c;cx.beginPath();cx.arc(px,py,rad,0,7);cx.fill();
+  cx.shadowBlur=0;cx.fillStyle='#fff';cx.font='600 14px system-ui';cx.textAlign='center';cx.fillText('P'+(p.slot+1),px,py+5)})})();
+render();
+</script></body></html>
