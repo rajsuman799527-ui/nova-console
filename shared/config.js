@@ -1,7 +1,7 @@
 // Supabase dashboard > Project Settings > API se ye 2 values yahan paste karo
 window.CFG = {
   SUPABASE_URL: 'https://YOUR_PROJECT.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR_ANON_KEY',
+  SUPABASE_ANON_KEY: 'sb_publishable_Jr4nrMsrUX6fq6lHJOlu5g_JQ5qKkm6',
   MAX_PLAYERS: 5,
   COLORS: ['#8b6cff', '#00e0a4', '#ff5c8a', '#ffb020', '#2ec5ff'],
   GAMES: [
