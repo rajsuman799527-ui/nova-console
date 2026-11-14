@@ -15,17 +15,22 @@ h1{font-size:34px;letter-spacing:-.03em}p{font-size:16px}
 #remote .b{border-radius:22px;font-size:26px}
 .ok{display:flex;gap:14px}.ok .b{width:130px;height:64px;border-radius:32px;font-size:18px}
 /* pad */
-#pad{display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:1fr 1fr;padding:3vh 5vw;gap:0;align-items:center;justify-items:center}
-.dp3{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:min(34vh,150px);aspect-ratio:1;gap:4px}
-.dp3 .b{border-radius:14px;font-size:16px}
-.face{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:min(38vh,170px);aspect-ratio:1;gap:4px}
-.face .b{border-radius:50%;font-size:22px}
+#pad{position:absolute;inset:0;display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:1.1fr 1fr;padding:3vh 6vw;align-items:center;justify-items:center}
+.dp3{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:min(42vh,24vw);aspect-ratio:1;gap:6px}
+.dp3 .b{border-radius:18px;font-size:24px}
+.face{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:min(46vh,27vw);aspect-ratio:1;gap:6px}
+.face .b{border-radius:50%;font-size:32px}
 .mid{display:flex;flex-direction:column;align-items:center;gap:10px;grid-column:2;grid-row:1}.mid .row{display:flex;gap:16px}
-.mid .b{width:76px;height:32px;border-radius:16px;font-size:11px;letter-spacing:.1em}
-.sticks{grid-column:1/4;grid-row:2;display:flex;gap:min(16vw,120px)}
-.stick{width:min(30vh,130px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid var(--line);position:relative;touch-action:none}
+.mid{gap:16px}.mid .b{width:120px;height:46px;border-radius:23px;font-size:14px;letter-spacing:.1em}
+.sticks{grid-column:1/4;grid-row:2;display:flex;gap:16vw}
+.stick{width:min(38vh,21vw);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid var(--line);position:relative;touch-action:none}
 .knob{position:absolute;left:50%;top:50%;width:48%;height:48%;margin:-24% 0 0 -24%;border-radius:50%;background:linear-gradient(180deg,#2a2a30,#111);border:1px solid rgba(255,255,255,.2);box-shadow:0 8px 24px #000}
 .stick.on{border-color:var(--c)}.stick.on .knob{border-color:var(--c);box-shadow:0 0 26px var(--c)}
+#tap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;padding:24px}
+#tb{position:absolute;top:calc(env(safe-area-inset-top) + 18px);left:18px}
+#mn{position:absolute;top:calc(env(safe-area-inset-top) + 18px);right:18px;width:96px;height:42px;border-radius:21px;font-size:14px}
+.tapbtn{width:min(78vw,58vh);aspect-ratio:1;border-radius:50%;font-size:clamp(34px,9vw,56px);letter-spacing:.02em;border:2px solid var(--c);background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--c) 35%,#000),#050505 72%);box-shadow:0 0 90px -10px var(--c),inset 0 0 60px rgba(255,255,255,.04)}
+.tapbtn.on{transform:scale(.95);background:var(--c);color:#000;box-shadow:0 0 140px var(--c)}
 #rot{position:absolute;inset:0;background:#000;z-index:9;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px}
 @media(orientation:portrait){#pad:not(.hide)~#rot{display:flex}}
 </style></head><body>
@@ -40,6 +45,7 @@ h1{font-size:34px;letter-spacing:-.03em}p{font-size:16px}
  <div class="mid"><div id="pb" class="badge glass"></div><div class="row"><div class="b" data-k="select">SELECT</div><div class="b" data-k="start">START</div></div></div>
  <div class="face"><span></span><div class="b" data-k="tri" style="color:#5eead4">&#9651;</div><span></span><div class="b" data-k="sq" style="color:#f9a8d4">&#9633;</div><span></span><div class="b" data-k="ci" style="color:#fca5a5">&#9675;</div><span></span><div class="b" data-k="cr" style="color:#a5b4fc">&#10005;</div><span></span></div>
  <div class="sticks"><div class="stick" data-s="L"><div class="knob"></div></div><div class="stick" data-s="R"><div class="knob"></div></div></div></section>
+<section id="tap" class="hide"><div id="tb" class="badge glass"></div><div class="b" id="mn" data-k="select">Menu</div><div class="b tapbtn" data-k="cr">TAP</div><p class="mut">Tap anywhere on the circle</p></section>
 <div id="rot"><div style="font-size:54px">&#8635;</div><p class="mut">Rotate your phone to play</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="../shared/config.js"></script>
@@ -48,7 +54,9 @@ const {SUPABASE_URL,SUPABASE_ANON_KEY,COLORS}=CFG,$=id=>document.getElementById(
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:60}}});
 const id=sessionStorage.nid||(sessionStorage.nid=Math.random().toString(36).slice(2,10));
 let ch=null,slot=-1,view='join';
-const show=v=>{view=v;['join','wait','remote','pad'].forEach(s=>$(s).classList.toggle('hide',s!==v))};
+// har game ka apna controller: 'pad' = PlayStation, 'tap' = ek bada button
+const PADS={flappy:'tap'};
+const show=v=>{view=v;['join','wait','remote','pad','tap'].forEach(s=>$(s).classList.toggle('hide',s!==v))};
 const buzz=n=>navigator.vibrate&&navigator.vibrate(n);
 // ---- code entry
 const dg=$('digits');for(let i=0;i<6;i++){const e=document.createElement('input');e.inputMode='numeric';e.maxLength=1;e.autocomplete='off';dg.appendChild(e)}
@@ -69,7 +77,8 @@ function badge(el){const c=COLORS[slot];el.style.setProperty('--c',c);el.innerHT
 function apply(r){
  slot=r.players.findIndex(p=>p.id===id);
  if(slot<0){show('wait');$('wb').innerHTML='';$('wt').textContent=r.full.includes(id)?'Room is full':'Connecting';$('ws').textContent=r.full.includes(id)?'All 5 player slots are taken.':'';return}
- if(r.mode==='game'){show('pad');badge($('pb'));return}
+ if(r.mode==='game'){const g=CFG.GAMES.find(x=>x.id===r.game)||{},t=g.pad||PADS[r.game]||'pad';
+  show(t);badge($(t==='tap'?'tb':'pb'));$('mn').classList.toggle('hide',slot!==0);return}
  if(slot===0){show('remote');badge($('rb'));return}
  show('wait');badge($('wb'));$('wt').textContent='You are in';$('ws').textContent=r.mode==='menu'?'Player 1 is choosing a game':'Waiting for the game to start';
 }
@@ -90,5 +99,8 @@ document.querySelectorAll('.stick').forEach(st=>{
  const end=()=>{st.classList.remove('on');kn.style.transform='';out({t:'stick',s,x:0,y:0})};
  st.addEventListener('pointerup',end);st.addEventListener('pointercancel',end);
 });
+document.addEventListener('pointerdown',()=>{if((view==='pad'||view==='tap')&&!document.fullscreenElement){const e=document.documentElement,f=e.requestFullscreen||e.webkitRequestFullscreen;
+ if(f){const r=f.call(e);r&&r.catch&&r.catch(()=>{})}
+ if(view==='pad'&&screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{})}},{capture:true});
 document.addEventListener('contextmenu',e=>e.preventDefault());
 </script></body></html>
