@@ -21,6 +21,13 @@ main{position:relative;min-height:0}main>section{position:absolute;inset:0}
 #game #cv{width:100%;height:100%;border-radius:var(--r);background:#050505;border:1px solid var(--line)}
 #gx{position:absolute;inset:0;border-radius:var(--r);overflow:hidden;background:#000;border:1px solid var(--line)}
 #game .hint{position:absolute;left:24px;bottom:18px;z-index:5}
+body.ingame{padding:0;gap:0;display:block}
+body.ingame header,body.ingame footer{display:none}
+body.ingame main>section#game{position:fixed;inset:0;z-index:20}
+body.ingame #cv,body.ingame #gx{border-radius:0;border:0}
+body.ingame.mod #game .hint{display:none}
+#fs{position:fixed;right:14px;bottom:14px;z-index:30;padding:10px 16px;font-size:13px;color:var(--mut);opacity:.0;transition:.3s;pointer-events:none}
+body.ingame:not(.isfs) #fs{opacity:.85}
 #dock{display:flex;gap:1.2vw;justify-content:center}
 .slot{padding:12px 22px;display:flex;align-items:center;gap:12px;font-weight:600;font-size:clamp(13px,1.2vw,20px);opacity:.35;transition:.3s}
 .slot.on{opacity:1}.slot i{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c)}
@@ -34,6 +41,7 @@ main{position:relative;min-height:0}main>section{position:absolute;inset:0}
  <section id="game" class="hide"><canvas id="cv"></canvas><div id="gx" style="display:none"></div><p class="hint">Player 1: press Select to go back</p></section>
 </main>
 <footer id="dock"></footer>
+<div id="fs" class="glass">Click once for full screen (or press F)</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="../shared/config.js"></script>
@@ -59,14 +67,14 @@ const gameCtx={get container(){return gx},get players(){return players},colors:C
 function gameSync(){
  const want=(mode==='game'&&game&&window.NovaGames&&window.NovaGames[game])?game:null;
  $('cv').style.display=(mode==='game'&&!want)?'':'none';   // test arena for every game without a module
- gx.style.display=want?'block':'none';                      // must be visible BEFORE start() so it has a size
+ gx.style.display=want?'block':'none';document.body.classList.toggle('mod',!!want);                      // must be visible BEFORE start() so it has a size
  if(live&&live!==want){try{window.NovaGames[live].stop()}catch(e){console.error(e)}live=null}
  if(want&&!live){try{window.NovaGames[want].start(gameCtx);live=want}catch(e){console.error(e);err('Game start error: '+(e&&e.message||e))}}
  if(mode==='game'&&game&&game!=='test'&&!want)err('Game file not loaded for "'+game+'" (check games/'+game+'.js path)');
  if(mode==='game'&&want&&typeof THREE==='undefined')err('three.js did not load (internet/CDN blocked?)')}
-function err(m){const e=$('st');e.textContent=m;e.style.color='#ff5c8a';e.style.maxWidth='60vw'}
+function err(m){const e=$('st');e.textContent=m;e.style.color='#ff5c8a';e.style.cssText+=';position:fixed;top:10px;left:10px;z-index:99;background:#000;padding:8px 12px;border-radius:10px;display:block'}
 window.addEventListener('error',ev=>err('Error: '+ev.message+' ('+String(ev.filename||'').split('/').pop()+':'+ev.lineno+')'));
-function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');gameSync();cast()}
+function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');document.body.classList.toggle('ingame',m==='game');gameSync();cast()}
 function render(){
  $('dock').innerHTML=Array.from({length:MAX_PLAYERS},(_,i)=>{const p=players[i];return `<div class="slot glass ${p?'on':''}" style="--c:${COLORS[i]}"><i></i>Player ${i+1}${i===0&&p?' <small>Remote</small>':''}</div>`}).join('');
  $('who').textContent=players.length?'Player 1 is in control':'';
@@ -106,5 +114,9 @@ const cv=$('cv'),cx=cv.getContext('2d');
   const px=st.x*r.width,py=st.y*r.height,rad=k.cr?34:24,c=COLORS[p.slot];
   cx.shadowColor=c;cx.shadowBlur=30;cx.fillStyle=c;cx.beginPath();cx.arc(px,py,rad,0,7);cx.fill();
   cx.shadowBlur=0;cx.fillStyle='#fff';cx.font='600 14px system-ui';cx.textAlign='center';cx.fillText('P'+(p.slot+1),px,py+5)})})();
+const de=document.documentElement,goFs=()=>{const f=de.requestFullscreen||de.webkitRequestFullscreen;if(f&&!document.fullscreenElement){const r=f.call(de);r&&r.catch&&r.catch(()=>{})}};
+document.addEventListener('click',()=>{if(mode==='game')goFs()});
+document.addEventListener('keydown',e=>{if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():goFs()}});
+document.addEventListener('fullscreenchange',()=>document.body.classList.toggle('isfs',!!document.fullscreenElement));
 render();
 </script></body></html>
