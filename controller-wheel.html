@@ -1,0 +1,481 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><title>NOVA Controller</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<style>
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.view{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;text-align:center}
+h1{font-size:34px;letter-spacing:-.03em}p{font-size:16px}
+#digits{display:flex;gap:8px}#digits input{width:46px;height:62px;text-align:center;font-size:28px;font-weight:700;color:var(--tx);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;outline:none;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+#digits input:focus{border-color:var(--c,var(--acc));box-shadow:0 0 24px -6px var(--acc)}
+#err{color:#ff5c8a;min-height:20px}
+.badge{display:flex;align-items:center;gap:10px;padding:10px 18px;font-weight:700}.badge i{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c)}
+.b{display:grid;place-items:center;font-weight:700;color:var(--tx);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.03));border:1px solid var(--line);transition:transform .08s,background .08s,box-shadow .08s;touch-action:none}
+.b.on{transform:scale(.92);background:var(--c);color:#000;box-shadow:0 0 30px var(--c)}
+/* remote */
+#remote .dp{display:grid;grid-template-columns:repeat(3,84px);grid-template-rows:repeat(3,84px);gap:8px}
+#remote .b{border-radius:22px;font-size:26px}
+.ok{display:flex;gap:14px}.ok .b{width:130px;height:64px;border-radius:32px;font-size:18px}
+/* pad */
+#pad{position:absolute;inset:0;display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:1.1fr 1fr;padding:3vh 6vw;align-items:center;justify-items:center}
+.dp3{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:min(42vh,24vw);aspect-ratio:1;gap:6px}
+.dp3 .b{border-radius:18px;font-size:24px}
+.face{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:min(46vh,27vw);aspect-ratio:1;gap:6px}
+.face .b{border-radius:50%;font-size:32px}
+.mid{display:flex;flex-direction:column;align-items:center;gap:10px;grid-column:2;grid-row:1}.mid .row{display:flex;gap:16px}
+.mid{gap:16px}.mid .b{width:120px;height:46px;border-radius:23px;font-size:14px;letter-spacing:.1em}
+.sticks{grid-column:1/4;grid-row:2;display:flex;gap:16vw}
+.stick{width:min(38vh,21vw);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid var(--line);position:relative;touch-action:none}
+.knob{position:absolute;left:50%;top:50%;width:48%;height:48%;margin:-24% 0 0 -24%;border-radius:50%;background:linear-gradient(180deg,#2a2a30,#111);border:1px solid rgba(255,255,255,.2);box-shadow:0 8px 24px #000}
+.stick.on{border-color:var(--c)}.stick.on .knob{border-color:var(--c);box-shadow:0 0 26px var(--c)}
+#tap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;padding:24px}
+#tb{position:absolute;top:calc(env(safe-area-inset-top) + 18px);left:18px}
+#mn{position:absolute;top:calc(env(safe-area-inset-top) + 18px);right:18px;width:96px;height:42px;border-radius:21px;font-size:14px}
+.tapbtn{width:min(78vw,58vh);aspect-ratio:1;border-radius:50%;font-size:clamp(34px,9vw,56px);letter-spacing:.02em;border:2px solid var(--c);background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--c) 35%,#000),#050505 72%);box-shadow:0 0 90px -10px var(--c),inset 0 0 60px rgba(255,255,255,.04)}
+.tapbtn.on{transform:scale(.95);background:var(--c);color:#000;box-shadow:0 0 140px var(--c)}
+#rot{position:absolute;inset:0;background:#000;z-index:9;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+@media(orientation:portrait){#pad:not(.hide)~#rot{display:flex}}
+
+/* carrom */
+html,body{overscroll-behavior:none}
+#carrom{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;padding:10px 12px 12px;background:#000;touch-action:none}
+#carrom.hide{display:none!important}
+.cbn{position:relative;flex:none;border-radius:18px;padding:10px 14px 14px;overflow:hidden;background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03));border:1px solid var(--tc,var(--line));box-shadow:0 0 34px -12px var(--tc,transparent),inset 0 1px rgba(255,255,255,.18);transition:border-color .3s,box-shadow .3s}
+.cbn-r{display:flex;align-items:center;gap:12px}
+.cbn-t{flex:1;min-width:0;display:flex;flex-direction:column}
+#cbt{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--tc,var(--tx));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cbs{font-size:12px;color:var(--mut);margin-top:1px}
+#cbtime{font-size:36px;font-weight:800;min-width:46px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tc,var(--tx));text-shadow:0 0 18px var(--tc,transparent)}
+#cbtime.low{color:#ff5c6c;animation:cblink .5s ease-in-out infinite alternate}
+@keyframes cblink{to{opacity:.4}}
+.cbar{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.08)}
+#cbu{display:block;height:100%;width:100%;background:var(--tc,#fff);box-shadow:0 0 10px var(--tc,#fff);transform-origin:left;text-decoration:none}
+.csc{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.csc .badge{padding:4px 10px;font-size:12px}
+.csc .sp{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.csc .sp i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.csc .sp.me{border-color:var(--c)}
+.caim{position:relative;flex:1;min-height:0;border-radius:22px;overflow:hidden;touch-action:none;background:radial-gradient(120% 90% at 50% 100%,rgba(255,255,255,.06),transparent 60%),#050505;border:1px solid var(--line);transition:opacity .3s,border-color .3s,box-shadow .3s}
+.caim.on{border-color:var(--mc);box-shadow:0 0 40px -14px var(--mc),inset 0 0 50px -30px var(--mc)}
+.caim.off{opacity:.38}
+#casvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cfwd{position:absolute;top:10px;left:0;right:0;text-align:center;font-size:11px;letter-spacing:.22em;color:var(--mut);pointer-events:none}
+.chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:14px;color:var(--mut);pointer-events:none;transition:opacity .2s}
+.cslide{position:relative;flex:none;padding:4px 2px 0;transition:opacity .3s}
+.cslide.off{opacity:.4}
+.cslide small{display:block;text-align:center;margin-top:8px;font-size:11px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase}
+.rail{position:relative;height:88px;border-radius:44px;touch-action:none;
+background:repeating-linear-gradient(91deg,rgba(0,0,0,0) 0 7px,rgba(60,30,10,.2) 7px 8px,rgba(0,0,0,0) 8px 19px,rgba(255,224,170,.07) 19px 20px),
+repeating-linear-gradient(0deg,rgba(0,0,0,.06) 0 2px,transparent 2px 6px),
+linear-gradient(180deg,#b27d41,#8c5b29 45%,#6a4019);
+box-shadow:inset 0 2px 0 rgba(255,228,176,.5),inset 0 -5px 9px rgba(0,0,0,.5),0 12px 26px -10px #000,0 0 0 2px #2a1708}
+.groove{position:absolute;left:44px;right:44px;top:50%;height:18px;margin-top:-9px;border-radius:9px;background:linear-gradient(180deg,#160a03,#3b2210);box-shadow:inset 0 4px 6px #000,0 1px 0 rgba(255,224,170,.4)}
+.ticks{position:absolute;left:44px;right:44px;top:12px;height:10px;background:repeating-linear-gradient(90deg,rgba(40,20,5,.75) 0 2px,transparent 2px calc(100%/10))}
+.ticks.b{top:auto;bottom:12px}
+.screw{position:absolute;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c4,#c79a3b 55%,#5a3d0c);box-shadow:0 2px 3px rgba(0,0,0,.6)}
+.screw::after{content:"";position:absolute;left:3px;right:3px;top:50%;height:2px;margin-top:-1px;background:rgba(60,35,5,.8);transform:rotate(35deg)}
+.screw.l{left:14px}.screw.r{right:14px}
+#cknob{position:absolute;left:0;top:50%;width:66px;height:66px;margin-top:-33px;border-radius:50%;pointer-events:none;border:3px solid rgba(255,255,255,.85);
+background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.95) 0 6%,rgba(255,255,255,0) 24%),radial-gradient(circle,color-mix(in srgb,var(--mc,#8b6cff) 45%,#fff) 0 16%,var(--mc,#8b6cff) 56%,color-mix(in srgb,var(--mc,#8b6cff) 55%,#000) 100%);
+box-shadow:0 0 26px 5px var(--mc,#8b6cff),0 10px 14px rgba(0,0,0,.65);transition:transform .0s,box-shadow .2s,scale .15s}
+#cknob::before{content:"";position:absolute;inset:11px;border-radius:50%;border:2px solid rgba(255,255,255,.55)}
+#cknob::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:rgba(255,255,255,.9)}
+#cknob.grab{scale:1.12;box-shadow:0 0 40px 10px var(--mc,#8b6cff),0 14px 18px rgba(0,0,0,.7)}
+.cslide.off #cknob{box-shadow:0 6px 10px rgba(0,0,0,.6);filter:saturate(.4)}
+#ctoast{position:absolute;left:50%;top:38%;transform:translate(-50%,0);padding:10px 18px;border-radius:14px;font-weight:800;font-size:16px;background:rgba(20,20,24,.92);border:1px solid var(--line);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:5;white-space:nowrap}
+#ctoast.on{opacity:1;transform:translate(-50%,-8px)}
+#cover{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#cover.hide{display:none!important}
+#cover h2{font-size:34px;letter-spacing:-.03em;color:var(--tc,var(--tx));text-shadow:0 0 30px var(--tc,transparent)}
+#cover .ok{flex-direction:column;gap:12px}#cover .ok .b{width:220px;height:58px;border-radius:29px;font-size:18px}
+#cmenu{position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom) + 6px);font-size:10px;letter-spacing:.14em;color:var(--mut);opacity:.5;padding:6px 8px;z-index:4;display:none;touch-action:none}
+#cmenu.on{display:block}
+#cmenu.hold{opacity:1;color:#ff5c8a}
+#rotp{position:absolute;inset:0;background:#000;z-index:9;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+@media(orientation:landscape) and (max-height:520px){#carrom:not(.hide)~#rotp{display:flex}}
+/* ===== racing controller (landscape) ===== */
+#racing{position:absolute;inset:0;background:radial-gradient(120% 100% at 50% 115%,#1a1a24,#000 70%);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+#racing.hide{display:none!important}
+.rtl{position:absolute;left:12px;top:calc(env(safe-area-inset-top) + 10px);display:flex;gap:10px;z-index:3}
+.ri{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--tx);background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04));border:1px solid var(--line);box-shadow:inset 0 1px rgba(255,255,255,.2);touch-action:none;font:800 12px system-ui}
+.ri svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ri.on{color:#000;background:var(--c);box-shadow:0 0 18px var(--c)}
+.ri.hide{display:none}
+.rtr{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 14px);display:flex;gap:8px;z-index:3}
+.rch{padding:7px 12px;border-radius:999px;font:800 11px system-ui;letter-spacing:.12em;color:var(--mut);background:rgba(255,255,255,.06);border:1px solid var(--line);touch-action:none}
+.rch.on{color:#000;background:var(--c);box-shadow:0 0 14px var(--c)}
+#rcb{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translateX(-50%);padding:6px 14px;font-size:13px}
+#rsteer{position:absolute;left:4vw;bottom:5vh;height:min(80vh,46vw);aspect-ratio:1;touch-action:none}
+#rsteer svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#rmk{position:absolute;top:50%;left:50%;width:24%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;border:3px solid rgba(255,255,255,.85);
+background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.95) 0 6%,rgba(255,255,255,0) 24%),radial-gradient(circle,color-mix(in srgb,var(--c,#8b6cff) 45%,#fff) 0 16%,var(--c,#8b6cff) 56%,color-mix(in srgb,var(--c,#8b6cff) 55%,#000) 100%);
+box-shadow:0 0 26px 5px var(--c,#8b6cff),0 10px 14px rgba(0,0,0,.65)}
+#rsteer.on .rring{stroke:var(--c)}
+.rpad{position:absolute;bottom:5vh;border-radius:26px;touch-action:none;display:flex;align-items:flex-end;justify-content:center;padding-bottom:14px;overflow:hidden;font:800 13px system-ui;letter-spacing:.18em;color:rgba(255,255,255,.6);
+background:repeating-linear-gradient(180deg,rgba(255,255,255,.05) 0 2px,transparent 2px 14px),linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02));border:1.5px solid var(--pc);box-shadow:inset 0 0 40px -18px var(--pc),0 0 30px -14px var(--pc)}
+.rpad.on{color:#fff;box-shadow:0 0 44px var(--pc),inset 0 0 40px -10px var(--pc)}
+.rpad u{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(0deg,color-mix(in srgb,var(--pc) 70%,#000),transparent);opacity:.8;text-decoration:none;pointer-events:none}
+.rpad span{position:relative}
+#racc{right:3vw;width:20vw;height:76vh;--pc:#00e0a4}
+#rbrk{right:calc(3vw + 22.4vw);width:15vw;height:44vh;--pc:#ff4d5e}
+#rhud{position:absolute;left:50%;bottom:5vh;transform:translateX(-50%);width:17vw;min-width:120px;text-align:center;pointer-events:none}
+#rspd{display:block;font-size:clamp(34px,11vh,60px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 0 22px var(--c)}
+#rhud small{font-size:11px;letter-spacing:.2em;color:var(--mut)}
+#rgear{display:inline-block;margin:6px 0;padding:2px 12px;border-radius:8px;font-weight:900;font-size:18px;color:#000;background:var(--c)}
+#rpl{font-weight:800;font-size:14px;letter-spacing:.04em;color:var(--tx)}
+#rcd{position:absolute;left:0;right:0;top:22%;text-align:center;font-size:min(30vh,120px);font-weight:900;color:#fff;text-shadow:0 0 40px var(--c);pointer-events:none;z-index:4}
+#rcd:empty{display:none}
+#rpanel{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);touch-action:manipulation}
+#rpanel.hide{display:none!important}
+.rbox{width:min(560px,92vw);max-height:94vh;overflow:auto;padding:16px 20px;border-radius:22px;text-align:center;background:linear-gradient(160deg,rgba(255,255,255,.10),rgba(255,255,255,.03));border:1px solid var(--line);box-shadow:0 0 50px -16px var(--c)}
+.rbox h2{font-size:26px;letter-spacing:-.02em;margin-bottom:10px;text-shadow:0 0 24px var(--c)}
+.rrw{display:flex;gap:8px;justify-content:center;align-items:center;margin:8px 0;flex-wrap:wrap}
+.rrw small{color:var(--mut);letter-spacing:.14em;font-size:11px;min-width:54px}
+.rb{padding:10px 16px;border-radius:14px;font:800 14px system-ui;color:var(--tx);background:rgba(255,255,255,.07);border:1px solid var(--line);touch-action:manipulation}
+.rb.sel{color:#000;background:var(--c);box-shadow:0 0 18px var(--c)}
+.rb.big{padding:13px 30px;border-radius:26px;font-size:17px}
+.rb.dim{opacity:.4}
+.rnum{min-width:34px;font-size:22px;font-weight:900}
+.rtbl{margin:6px 0;text-align:left;font-size:14px}
+.rtbl div{display:flex;gap:8px;align-items:center;padding:5px 4px;border-bottom:1px solid var(--line)}
+.rtbl b{width:22px}.rtbl i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.rtbl span{flex:1}.rtbl em{font-style:normal;font-variant-numeric:tabular-nums}.rtbl small{color:var(--mut);font-variant-numeric:tabular-nums}
+.rtbl .me{background:rgba(255,255,255,.07);border-radius:8px}
+#racing.spec .rpad,#racing.spec #rsteer{opacity:.3;pointer-events:none}
+#rotr{position:absolute;inset:0;background:#000;z-index:9;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+@media(orientation:portrait){#racing:not(.hide)~#rotr{display:flex}}
+</style></head><body>
+<section id="join" class="view in"><div class="logo"><i></i>NOVA</div><h1>Enter the code</h1>
+<div id="digits"></div><p id="err"></p><p class="mut">Find the 6-digit code on your TV</p></section>
+<section id="wait" class="view hide"><div id="wb" class="badge glass"></div><h1 id="wt"></h1><p class="mut" id="ws"></p></section>
+<section id="remote" class="view hide"><div id="rb" class="badge glass"></div>
+ <div class="dp"><span></span><div class="b" data-k="up">&#9650;</div><span></span><div class="b" data-k="left">&#9664;</div><span></span><div class="b" data-k="right">&#9654;</div><span></span><div class="b" data-k="down">&#9660;</div><span></span></div>
+ <div class="ok"><div class="b" data-k="ci">Back</div><div class="b" data-k="cr">OK</div></div></section>
+<section id="pad" class="hide">
+ <div class="dp3"><span></span><div class="b" data-k="up">&#9650;</div><span></span><div class="b" data-k="left">&#9664;</div><span></span><div class="b" data-k="right">&#9654;</div><span></span><div class="b" data-k="down">&#9660;</div><span></span></div>
+ <div class="mid"><div id="pb" class="badge glass"></div><div class="row"><div class="b" data-k="select">SELECT</div><div class="b" data-k="start">START</div></div></div>
+ <div class="face"><span></span><div class="b" data-k="tri" style="color:#5eead4">&#9651;</div><span></span><div class="b" data-k="sq" style="color:#f9a8d4">&#9633;</div><span></span><div class="b" data-k="ci" style="color:#fca5a5">&#9675;</div><span></span><div class="b" data-k="cr" style="color:#a5b4fc">&#10005;</div><span></span></div>
+ <div class="sticks"><div class="stick" data-s="L"><div class="knob"></div></div><div class="stick" data-s="R"><div class="knob"></div></div></div></section>
+<section id="tap" class="hide"><div id="tb" class="badge glass"></div><div class="b" id="mn" data-k="select">Menu</div><div class="b tapbtn" data-k="cr">TAP</div><p class="mut">Tap anywhere on the circle</p></section>
+<section id="carrom" class="hide">
+ <div class="cbn" id="cbn"><div class="cbn-r"><div class="cbn-t"><b id="cbt">Connecting</b><small id="cbs"></small></div><div id="cbtime"></div></div><div class="cbar"><u id="cbu"></u></div><div class="csc"><div id="cb" class="badge glass"></div><span id="csc"></span></div></div>
+ <div class="caim off" id="caim"><svg id="casvg" xmlns="http://www.w3.org/2000/svg">
+  <g id="aidle" opacity=".5"><circle id="aic" r="46" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="2 9" stroke-linecap="round"/><circle id="aic2" r="12" fill="none" stroke="#fff" stroke-width="2" opacity=".6"/></g>
+  <g id="aact" style="display:none">
+   <circle id="amax" r="100" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="1 9" stroke-linecap="round" opacity=".7"/>
+   <circle id="ain" r="20" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round"/>
+   <line id="aband" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+   <g id="aarr"><line id="aal" stroke-width="6" stroke-linecap="round"/><polygon id="aah"/></g>
+   <circle id="afing" r="24" fill-opacity=".25" stroke-width="3"/>
+   <rect id="apt" rx="8" fill="rgba(255,255,255,.1)"/><rect id="apf" rx="8"/><text id="apx" text-anchor="middle" fill="#fff" font-size="15" font-weight="800"></text>
+  </g></svg>
+  <div class="cfwd">&#9650; TOWARDS THE BOARD</div><div class="chint" id="chint">Pull back and release to shoot</div></div>
+ <div class="cslide off" id="cslide"><div class="rail" id="crail"><span class="screw l"></span><span class="screw r"></span><div class="ticks"></div><div class="ticks b"></div><div class="groove"></div><div id="cknob"></div></div><small>Slide the striker</small></div>
+ <div id="ctoast"></div>
+ <div id="cmenu">HOLD FOR MENU</div>
+ <div id="cover" class="hide"><div class="badge glass" id="cvb"></div><h2 id="cvt"></h2><p class="mut" id="cvs"></p>
+  <div class="ok" id="cvbtn"><div class="b" data-k="cr">Play again</div><div class="b" data-k="select">Menu</div></div><p class="mut" id="cvw"></p></div>
+</section>
+<section id="racing" class="hide">
+ <div class="rtl">
+  <button class="ri" id="rmenu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <button class="ri" id="rcam" aria-label="Camera"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+  <button class="ri on" id="rtc" aria-label="Traction control"><svg viewBox="0 0 24 24"><path d="M4 19c2-9 5-13 8-13s6 4 8 13"/><path d="M8 19l4-8 4 8"/></svg></button>
+ </div>
+ <div id="rcb" class="badge glass"></div>
+ <div class="rtr"><button class="rch" id="rtilt">TILT</button><button class="rch" id="ranalog">ANALOG GAS</button></div>
+ <div id="rsteer">
+  <svg viewBox="0 0 200 200"><defs><radialGradient id="rwg" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity=".03"/></radialGradient></defs>
+   <circle cx="100" cy="100" r="96" fill="url(#rwg)" opacity=".5"/>
+   <g id="rwheel">
+    <circle class="rring" cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="17"/>
+    <circle class="rring" cx="100" cy="100" r="92.5" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.6"/>
+    <circle class="rring" cx="100" cy="100" r="75.5" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.6"/>
+    <path d="M100 100H20M100 100H180M100 100V178" stroke="rgba(255,255,255,.24)" stroke-width="13" stroke-linecap="round"/>
+    <rect x="95" y="8" width="10" height="26" rx="4" style="fill:var(--c,#8b6cff);filter:drop-shadow(0 0 6px var(--c,#8b6cff))"/>
+    <circle cx="100" cy="100" r="25" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
+    <path d="M100 86l5.5 11 12 1.8-8.7 8.4 2 12L100 113l-10.8 6.2 2-12-8.7-8.4 12-1.8z" fill="rgba(255,255,255,.5)"/>
+   </g></svg>
+ </div>
+ <div id="rhud"><span id="rspd">0</span><small>KM/H</small><br><span id="rgear">N</span><div id="rpl"></div></div>
+ <div class="rpad" id="rbrk"><u></u><span>BRAKE</span></div>
+ <div class="rpad" id="racc"><u></u><span>GAS</span></div>
+ <div id="rcd"></div>
+ <div id="rpanel" class="hide"></div>
+</section>
+<div id="rotp"><div style="font-size:54px">&#8635;</div><p class="mut">Hold your phone upright</p></div>
+<div id="rotr"><div style="font-size:54px">&#8635;</div><p class="mut">Rotate your phone to race</p></div>
+<div id="rot"><div style="font-size:54px">&#8635;</div><p class="mut">Rotate your phone to play</p></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="../shared/config.js"></script>
+<script>
+const {SUPABASE_URL,SUPABASE_ANON_KEY,COLORS}=CFG,$=id=>document.getElementById(id);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:60}}});
+const id=sessionStorage.nid||(sessionStorage.nid=Math.random().toString(36).slice(2,10));
+let ch=null,slot=-1,view='join';
+// har game ka apna controller: 'pad' = PlayStation, 'tap' = ek bada button
+const PADS={flappy:'tap',carrom:'carrom'},BADGE={pad:'pb',tap:'tb',carrom:'cb',racing:'rcb'};
+const show=v=>{if(v==='racing'&&view!=='racing')rReset();view=v;['join','wait','remote','pad','tap','carrom','racing'].forEach(s=>$(s).classList.toggle('hide',s!==v));if(v==='racing')rPanel()};
+const buzz=n=>navigator.vibrate&&navigator.vibrate(n);
+// ---- code entry
+const dg=$('digits');for(let i=0;i<6;i++){const e=document.createElement('input');e.inputMode='numeric';e.maxLength=1;e.autocomplete='off';dg.appendChild(e)}
+const ins=[...dg.children];
+ins.forEach((e,i)=>{e.oninput=()=>{e.value=e.value.replace(/\D/g,'');if(e.value&&ins[i+1])ins[i+1].focus();const c=ins.map(x=>x.value).join('');if(c.length===6)join(c)};
+ e.onkeydown=k=>{if(k.key==='Backspace'&&!e.value&&ins[i-1])ins[i-1].focus()}});
+const q=new URLSearchParams(location.search).get('c');
+if(q&&/^\d{6}$/.test(q)){q.split('').forEach((d,i)=>ins[i].value=d);join(q)}else ins[0].focus();
+function join(code){
+ $('err').textContent='';if(ch)sb.removeChannel(ch);
+ ch=sb.channel('room:'+code,{config:{broadcast:{self:false},presence:{key:id}}});
+ let got=false;
+ ch.on('broadcast',{event:'roster'},({payload:r})=>{got=true;apply(r)});
+ ch.on('broadcast',{event:'gstate'},({payload:p})=>{if(!p)return;if(p.g==='carrom')carromState(p);else if(p.g==='racing')racingState(p)});
+ ch.subscribe(async(s,e)=>{if(s!=='SUBSCRIBED'&&s!=='CLOSED'){$('err').textContent='Connection problem: '+s+(e?' '+(e.message||e):'')}if(s==='SUBSCRIBED'){const T=+sessionStorage.nt||(sessionStorage.nt=Date.now()),hi=()=>ch.send({type:'broadcast',event:'hello',payload:{id,t:T}});hi();clearInterval(window.hb);window.hb=setInterval(hi,2000);
+  setTimeout(()=>{if(!got){$('err').textContent='No TV found. Connected to Supabase, but the TV did not answer. Refresh the TV page and use its new code.';sb.removeChannel(ch);ins.forEach(x=>x.value='');ins[0].focus();show('join')}},5000)}});
+}
+function badge(el){const c=COLORS[slot];el.style.setProperty('--c',c);el.innerHTML=`<i></i>Player ${slot+1}`;document.documentElement.style.setProperty('--c',c);document.documentElement.style.setProperty('--acc',c)}
+function apply(r){
+ slot=r.players.findIndex(p=>p.id===id);
+ if(slot<0){show('wait');$('wb').innerHTML='';$('wt').textContent=r.full.includes(id)?'Room is full':'Connecting';$('ws').textContent=r.full.includes(id)?'All 5 player slots are taken.':'';return}
+ if(r.mode==='game'){const g=CFG.GAMES.find(x=>x.id===r.game)||{},t=g.pad||PADS[r.game]||'pad';
+  show(t);badge($(BADGE[t]||'pb'));$('mn').classList.toggle('hide',slot!==0);return}
+ if(slot===0){show('remote');badge($('rb'));return}
+ show('wait');badge($('wb'));$('wt').textContent='You are in';$('ws').textContent=r.mode==='menu'?'Player 1 is choosing a game':'Waiting for the game to start';
+}
+// ---- input
+const out=(o)=>ch&&ch.send({type:'broadcast',event:'in',payload:{id,...o}});
+document.querySelectorAll('.b[data-k]').forEach(b=>{
+ const k=b.dataset.k;
+ b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('on');buzz(12);out({t:'btn',k,d:1})});
+ const up=()=>{if(b.classList.contains('on')){b.classList.remove('on');out({t:'btn',k,d:0})}};
+ b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);
+});
+document.querySelectorAll('.stick').forEach(st=>{
+ const kn=st.firstElementChild,s=st.dataset.s;let last=0;
+ const mv=e=>{const r=st.getBoundingClientRect(),R=r.width/2;let x=(e.clientX-r.left-R)/R,y=(e.clientY-r.top-R)/R;const m=Math.hypot(x,y);if(m>1){x/=m;y/=m}
+  kn.style.transform=`translate(${x*R*.5}px,${y*R*.5}px)`;const n=performance.now();if(n-last>30){last=n;out({t:'stick',s,x:+x.toFixed(2),y:+y.toFixed(2)})}};
+ st.addEventListener('pointerdown',e=>{st.setPointerCapture(e.pointerId);st.classList.add('on');mv(e)});
+ st.addEventListener('pointermove',e=>{if(st.classList.contains('on'))mv(e)});
+ const end=()=>{st.classList.remove('on');kn.style.transform='';out({t:'stick',s,x:0,y:0})};
+ st.addEventListener('pointerup',end);st.addEventListener('pointercancel',end);
+});
+document.addEventListener('pointerdown',()=>{if((view==='pad'||view==='tap'||view==='carrom'||view==='racing')&&!document.fullscreenElement){const e=document.documentElement,f=e.requestFullscreen||e.webkitRequestFullscreen;
+ if(f){const r=f.call(e);r&&r.catch&&r.catch(()=>{})}
+ if(screen.orientation&&screen.orientation.lock)screen.orientation.lock(view==='pad'||view==='racing'?'landscape':view==='carrom'?'portrait':'any').catch(()=>{})}},{capture:true});
+
+// ================= Carrom controller =================
+// Phone -> screen: {t:'g',a:'pos',v} | {a:'aim',ang,pow,on} | {a:'shoot',ang,pow,v}
+// ang is relative to MY side: 0 = forward (towards the board centre), + = my right. Streams are throttled to 30 ms.
+const MAX_ANG=85*Math.PI/180;
+let G=null,gEnd=0,lastSeq=-1,lastWid=-1,lastPh='',myTurn=false,fired=-1,aimId=null,anchor=null,cur=null,maxD=140,sv=.5,slId=null;
+const cel={aim:$('caim'),svg:$('casvg'),slide:$('cslide'),rail:$('crail'),knob:$('cknob'),car:$('carrom')};
+const gout=o=>out({t:'g',...o});
+function stream(fn,ms){let last=0,t=null,pend=null;return{
+ push(v){pend=v;const n=performance.now();if(n-last>=ms){last=n;const p=pend;pend=null;if(t){clearTimeout(t);t=null}fn(p)}
+  else if(!t)t=setTimeout(()=>{t=null;last=performance.now();if(pend!==null){const p=pend;pend=null;fn(p)}},ms-(n-last))},
+ flush(){if(t){clearTimeout(t);t=null}if(pend!==null){last=performance.now();const p=pend;pend=null;fn(p)}},
+ cancel(){if(t){clearTimeout(t);t=null}pend=null}}}
+const posS=stream(v=>gout({a:'pos',v:+v.toFixed(3)}),30);
+const aimS=stream(a=>gout({a:'aim',ang:+a.ang.toFixed(3),pow:+a.pow.toFixed(3),on:a.on?1:0}),30);
+const canAct=()=>myTurn&&fired!==(G&&G.seq);
+let toastT=0;
+function ctoast(t){const e=$('ctoast');e.textContent=t;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),1600)}
+
+function carromState(p){
+ G=p;gEnd=performance.now()+(p.t||0)*1000;
+ const seats=p.seats||[],me=seats.find(s=>s.id===id),ts=seats.find(s=>s.id===p.turn);
+ const mc=me?me.color:COLORS[Math.max(slot,0)],tc=ts&&(p.ph==='aim'||p.ph==='move')?ts.color:'#8b8b95';
+ cel.car.style.setProperty('--mc',mc);cel.car.style.setProperty('--tc',tc);
+ const mine=!!me&&p.turn===id;
+ myTurn=!!me&&p.ph==='aim'&&mine;
+ let t='',s='';
+ if(p.ph==='aim'||p.ph==='move'){t=mine?'Your turn':(ts?ts.name:'Player')+' is playing';
+  s=!me?'You are watching':p.ph==='move'?'Watch the shot':mine?(p.bonus?'Extra turn! Slide, pull back, release':'Slide the striker, then pull back and release'):'Waiting for your turn'}
+ else if(p.ph==='over'){t='Game over';s=''}
+ else{t='Waiting for players';s='Carrom needs 2 to 4 players'}
+ $('cbt').textContent=t;$('cbs').textContent=s;
+ $('csc').innerHTML=seats.map(x=>`<span class="sp${x.id===id?' me':''}" style="--c:${x.color}"><i></i>${x.name.replace('Player ','P')} ${x.score}</span>`).join('');
+ cel.aim.classList.toggle('off',!canAct());cel.aim.classList.toggle('on',canAct());cel.slide.classList.toggle('off',!canAct());
+ $('chint').textContent=!me?'Spectating':canAct()?'Pull back and release to shoot':p.ph==='aim'?(ts?ts.name:'')+' is aiming':p.ph==='move'?'Shot in play':'';
+ // new turn for me: reset slider + haptic
+ if(p.seq!==lastSeq){lastSeq=p.seq;sv=.5;placeKnob();fired=-1;if(mine&&p.ph==='aim')buzz([40,60,40])}
+ if(!canAct()&&aimId!==null)endAim(false);
+ if(p.wid!==lastWid){lastWid=p.wid;if(p.warn&&mine){ctoast(p.warn);buzz([60,40,60])}}
+ // game over panel
+ const ov=$('cover');
+ if(p.ph==='over'&&p.win){ov.classList.remove('hide');const won=p.win.ids&&p.win.ids.includes(id);
+  $('cvt').textContent=won?'You win!':p.win.title;$('cvs').textContent=won?p.win.title+' '+(p.win.sub||''):(p.win.sub||'');
+  $('cvb').style.setProperty('--c',mc);$('cvb').innerHTML='<i></i>'+(me?me.name:'Spectator');
+  $('cvbtn').style.display=slot===0?'flex':'none';$('cvw').textContent=slot===0?'':'Waiting for Player 1';
+  if(lastPh!=='over')buzz(won?[60,50,60,50,160]:[40])}
+ else ov.classList.add('hide');
+ lastPh=p.ph;
+ $('cmenu').classList.toggle('on',slot===0&&p.ph!=='over');
+}
+// local countdown between server updates
+setInterval(()=>{if(!G||view!=='carrom')return;
+ const rem=Math.max(0,(gEnd-performance.now())/1000),tm=$('cbtime');
+ if(G.ph==='aim'){tm.textContent=Math.ceil(rem);tm.classList.toggle('low',rem<=5);$('cbu').style.transform=`scaleX(${Math.min(1,rem/(G.tmax||20))})`}
+ else{tm.textContent='';tm.classList.remove('low');$('cbu').style.transform=G.ph==='move'?'scaleX(1)':'scaleX(0)'}},100);
+
+// ---- aim area (slingshot)
+const $s=id=>document.getElementById(id),SV={};
+['aidle','aic','aic2','aact','amax','ain','aband','aarr','aal','aah','afing','apt','apf','apx'].forEach(k=>SV[k]=$s(k));
+function dims(){const r=cel.aim.getBoundingClientRect();maxD=Math.max(90,Math.min(r.width,r.height)*.42);return r}
+function layoutIdle(){const r=cel.aim.getBoundingClientRect();SV.aic.setAttribute('cx',r.width/2);SV.aic.setAttribute('cy',r.height*.58);SV.aic2.setAttribute('cx',r.width/2);SV.aic2.setAttribute('cy',r.height*.58)}
+new ResizeObserver(layoutIdle).observe(cel.aim);
+function aimCalc(){
+ let dx=cur.x-anchor.x,dy=cur.y-anchor.y;const d=Math.hypot(dx,dy),k=d>maxD?maxD/d:1;dx*=k;dy*=k;
+ const dist=Math.min(d,maxD),pow=dist/maxD;
+ let ang=Math.atan2(-dx,dy);   // full 360 degrees
+ return{dx,dy,d,pow,ang}}
+function drawAim(){
+ const a=aimCalc(),hue=Math.round(130-130*a.pow),col=`hsl(${hue},95%,60%)`,mc=getComputedStyle(cel.car).getPropertyValue('--mc')||'#fff';
+ SV.aidle.style.display='none';SV.aact.style.display='';
+ const set=(e,o)=>{for(const k in o)e.setAttribute(k,o[k])};
+ set(SV.amax,{cx:anchor.x,cy:anchor.y,r:maxD,stroke:mc});set(SV.ain,{cx:anchor.x,cy:anchor.y,stroke:mc});
+ set(SV.aband,{x1:anchor.x,y1:anchor.y,x2:anchor.x+a.dx,y2:anchor.y+a.dy,stroke:mc});
+ set(SV.afing,{cx:anchor.x+a.dx,cy:anchor.y+a.dy,fill:mc,stroke:mc});
+ // arrow in the shot direction (screen space: forward = up)
+ const ux=Math.sin(a.ang),uy=-Math.cos(a.ang),len=30+a.pow*maxD*.95,ex=anchor.x+ux*len,ey=anchor.y+uy*len,nx=-uy,ny=ux;
+ set(SV.aal,{x1:anchor.x+ux*12,y1:anchor.y+uy*12,x2:ex,y2:ey,stroke:col});
+ set(SV.aah,{points:`${ex+ux*18},${ey+uy*18} ${ex+nx*11},${ey+ny*11} ${ex-nx*11},${ey-ny*11}`,fill:col});
+ // power meter on the right edge
+ const r=cel.aim.getBoundingClientRect(),mh=Math.min(r.height*.6,260),mx=r.width-30,my=(r.height-mh)/2;
+ set(SV.apt,{x:mx,y:my,width:14,height:mh});set(SV.apf,{x:mx,y:my+mh*(1-a.pow),width:14,height:Math.max(0,mh*a.pow),fill:col});
+ set(SV.apx,{x:mx+7,y:my-8});SV.apx.textContent=Math.round(a.pow*100)+'%';
+ return a}
+function endAim(fire){
+ const was=aimId!==null;if(!was)return;aimId=null;
+ const a=aimCalc();SV.aact.style.display='none';SV.aidle.style.display='';aimS.cancel();
+ if(fire&&canAct()&&a.d>=24&&a.pow>=.05){gout({a:'shoot',ang:+a.ang.toFixed(3),pow:+a.pow.toFixed(3),v:+sv.toFixed(3)});fired=G.seq;buzz(55);
+  cel.aim.classList.add('off');cel.aim.classList.remove('on');cel.slide.classList.add('off')}
+ else{gout({a:'aim',ang:0,pow:0,on:0})}}   // quick tap or cancelled: nothing fires
+cel.aim.addEventListener('pointerdown',e=>{if(!canAct()||aimId!==null)return;e.preventDefault();cel.aim.setPointerCapture(e.pointerId);
+ aimId=e.pointerId;const r=dims();anchor={x:e.clientX-r.left,y:e.clientY-r.top};cur={...anchor};buzz(18);drawAim();gout({a:'aim',ang:0,pow:0,on:1})});
+cel.aim.addEventListener('pointermove',e=>{if(e.pointerId!==aimId)return;const r=cel.aim.getBoundingClientRect();cur={x:e.clientX-r.left,y:e.clientY-r.top};
+ const a=drawAim();aimS.push({ang:a.ang,pow:a.pow,on:1})});
+cel.aim.addEventListener('pointerup',e=>{if(e.pointerId===aimId)endAim(true)});
+cel.aim.addEventListener('pointercancel',e=>{if(e.pointerId===aimId)endAim(false)});
+
+// ---- striker slider
+function placeKnob(){const r=cel.rail.getBoundingClientRect(),kw=66,pad=10,tw=Math.max(1,r.width-2*pad-kw);cel.knob.style.transform=`translateX(${pad+sv*tw}px)`}
+function slideTo(x){const r=cel.rail.getBoundingClientRect(),kw=66,pad=10,tw=Math.max(1,r.width-2*pad-kw);
+ sv=Math.min(1,Math.max(0,(x-r.left-pad-kw/2)/tw));placeKnob();posS.push(sv)}
+cel.rail.addEventListener('pointerdown',e=>{if(!canAct()||slId!==null)return;e.preventDefault();cel.rail.setPointerCapture(e.pointerId);slId=e.pointerId;cel.knob.classList.add('grab');buzz(14);slideTo(e.clientX)});
+cel.rail.addEventListener('pointermove',e=>{if(e.pointerId===slId)slideTo(e.clientX)});
+const slEnd=e=>{if(e.pointerId!==slId)return;slId=null;cel.knob.classList.remove('grab');posS.flush();buzz(10);gout({a:'pos',v:+sv.toFixed(3)})};
+cel.rail.addEventListener('pointerup',slEnd);cel.rail.addEventListener('pointercancel',slEnd);
+new ResizeObserver(placeKnob).observe(cel.rail);
+
+// ---- long-press menu (Player 1 only; the big Menu button appears on the game-over panel)
+(()=>{const m=$('cmenu');let t=null;
+ m.addEventListener('pointerdown',e=>{e.preventDefault();m.setPointerCapture(e.pointerId);m.classList.add('hold');t=setTimeout(()=>{t=null;buzz(40);out({t:'btn',k:'select',d:1});out({t:'btn',k:'select',d:0})},700)});
+ const x=()=>{m.classList.remove('hold');if(t){clearTimeout(t);t=null}};m.addEventListener('pointerup',x);m.addEventListener('pointercancel',x)})();
+// ================= Racing controller (Apex Rush) =================
+// Phone -> screen (t:'g'): {a:'drive',steer:-1..1,thr:0..1,brk:0..1} (<= every 30 ms + on release)
+//   {a:'cam'} {a:'tc',on} {a:'setup',trk,laps,bots} {a:'ready'} {a:'start'} {a:'again'} {a:'pause'}
+// Screen -> phones (ctx.send 'gstate', g:'racing'): ph:'setup'|'grid'|'count'|'race'|'finish'|'results'|'paused',
+//   trk,laps,bots,tn:[track names],rd:[ready ids],n:cars,cd:countdown,cars:{id:[pos,lap,kmh,gear,rpm01,finished]},
+//   hit:{id:counter},res:[{id,name,color,pos,t,best}]
+const RD=Math.PI/180,rclamp=(v,a,b)=>v<a?a:v>b?b:v;
+const R={tgt:0,steer:0,thr:0,brk:0,tilt:false,analog:false,tc:true,tv:0,menu:false},RS={g:null,cd:-1,hit:-1,sig:''};
+let rLast=0,rTimer=null,steerId=null,steerX0=0,accId=null,brkId=null;
+const rout=o=>out({t:'g',...o});
+const rSteerNow=()=>R.steer;   // smoothed value, see rLoop below
+function rSend(){rLast=performance.now();rout({a:'drive',steer:+rSteerNow().toFixed(2),thr:+R.thr.toFixed(2),brk:+R.brk.toFixed(2)})}
+function rPush(force){const n=performance.now();
+ if(force||n-rLast>=30){if(rTimer){clearTimeout(rTimer);rTimer=null}rSend()}
+ else if(!rTimer)rTimer=setTimeout(()=>{rTimer=null;rSend()},30-(n-rLast))}
+setInterval(()=>{if(view==='racing')rPush(false)},120);   // heartbeat so the screen never thinks we vanished
+const rMark=()=>{$('rwheel').setAttribute('transform','rotate('+(rSteerNow()*120).toFixed(1)+' 100 100)')};
+// ---- steering hexagon: slide left/right from where the thumb lands (analog, small dead zone, soft curve)
+const rst=$('rsteer');
+const MAXA=2.1;   // wheel lock = about 120 degrees each way
+let wA0=0,wBase=0;
+const rAng=e=>{const r=rst.getBoundingClientRect();return Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))};
+const rSteerFrom=e=>{const r=rst.getBoundingClientRect();if(Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))<r.width*.1)return;   // too close to the hub: angle is unreliable
+ let d=rAng(e)-wA0;d=Math.atan2(Math.sin(d),Math.cos(d));const a=rclamp(wBase+d,-MAXA,MAXA);R.tgt=Math.abs(a)<.03?0:a/MAXA};
+rst.addEventListener('pointerdown',e=>{if(steerId!==null)return;e.preventDefault();rst.setPointerCapture(e.pointerId);steerId=e.pointerId;wA0=rAng(e);wBase=R.tgt*MAXA;rst.classList.add('on');buzz(10)});
+rst.addEventListener('pointermove',e=>{if(e.pointerId===steerId)rSteerFrom(e)});
+const rsEnd=e=>{if(e.pointerId!==steerId)return;steerId=null;R.tgt=0;rst.classList.remove('on')};
+rst.addEventListener('pointerup',rsEnd);rst.addEventListener('pointercancel',rsEnd);
+// ---- steering smoother: runs every frame, eases the wheel towards the finger (no jerks) and sends only when it moves
+let rsLast=performance.now();
+(function rLoop(t){requestAnimationFrame(rLoop);const dt=Math.min(.05,(t-rsLast)/1000);rsLast=t;if(view!=='racing')return;
+ const tg=R.tilt?R.tv:R.tgt,cur=R.steer,k=1-Math.exp(-dt*(Math.abs(tg)<Math.abs(cur)?16:20));
+ let nv=cur+(tg-cur)*k;if(tg===0&&Math.abs(nv)<.01)nv=0;
+ if(nv!==cur){R.steer=nv;rMark();rPush(false)}})(performance.now());
+// ---- pedals: accelerator (optional pressure = finger height) and brake
+function rPedal(el,kind){let pid=null;const fill=el.querySelector('u');
+ const val=e=>{if(kind==='brk')return 1;if(!R.analog)return 1;const r=el.getBoundingClientRect();return rclamp(.3+.7*(1-(e.clientY-r.top)/r.height),.3,1)};
+ const set=v=>{R[kind]=v;fill.style.height=(v*100)+'%';el.classList.toggle('on',v>0)};
+ el.addEventListener('pointerdown',e=>{if(pid!==null)return;e.preventDefault();el.setPointerCapture(e.pointerId);pid=e.pointerId;set(val(e));buzz(8);rPush(true)});
+ el.addEventListener('pointermove',e=>{if(e.pointerId===pid&&kind==='thr'){set(val(e));rPush(false)}});
+ const up=e=>{if(e.pointerId!==pid)return;pid=null;set(0);rPush(true)};
+ el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)}
+rPedal($('racc'),'thr');rPedal($('rbrk'),'brk');
+// ---- tilt steering: roll of the phone around the screen normal, derived from deviceorientation
+function rOri(e){if(e.beta==null||e.gamma==null)return;const b=e.beta*RD,g=e.gamma*RD;
+ const ux=-Math.cos(b)*Math.sin(g),uy=Math.sin(b);                       // world "up" in device axes
+ const a=(((screen.orientation&&screen.orientation.angle!=null?screen.orientation.angle:(window.orientation||0))%360)+360)%360;
+ const right=a===90?-uy:a===270?uy:a===180?-ux:ux,up=a===90?ux:a===270?-ux:a===180?-uy:uy;
+ const phi=Math.atan2(-right,up)/RD;                                      // + = wheel turned clockwise = steer right
+ const v=Math.abs(phi)<2?0:rclamp(phi/32,-1,1);R.tv=v}
+$('rtilt').addEventListener('click',async()=>{
+ if(!R.tilt){try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission){const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')return}}catch(x){return}
+  window.addEventListener('deviceorientation',rOri);R.tilt=true}
+ else{window.removeEventListener('deviceorientation',rOri);R.tilt=false;R.tv=0}
+ $('rtilt').classList.toggle('on',R.tilt);buzz(12)});
+$('ranalog').addEventListener('click',()=>{R.analog=!R.analog;$('ranalog').classList.toggle('on',R.analog);buzz(12)});
+$('rcam').addEventListener('click',()=>{rout({a:'cam'});buzz(12)});
+$('rtc').addEventListener('click',()=>{R.tc=!R.tc;$('rtc').classList.toggle('on',R.tc);rout({a:'tc',on:R.tc?1:0});buzz(12)});
+$('rmenu').addEventListener('click',()=>{R.menu=true;rPanel()});
+// ---- panels (setup / ready / pause / results / leave)
+const rEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rFmt=t=>{if(!(t>0))return '--';const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(3)};
+function rPanel(){
+ const p=RS.g,el=$('rpanel'),p1=slot===0,me=p&&p.cars&&p.cars[id];let h='',sig;
+ if(R.menu&&p1){sig='menu'+(p&&p.ph);h='<div class="rbox"><h2>Menu</h2><div class="rrw"><button class="rb big" data-a="back">Back to race</button></div>'+
+  (p&&(p.ph==='race'||p.ph==='paused')?'<div class="rrw"><button class="rb big" data-a="pause">'+(p.ph==='paused'?'Resume race':'Pause race')+'</button></div>':'')+
+  '<div class="rrw"><button class="rb big" data-a="leave" style="border-color:#ff5c8a;color:#ff5c8a">Leave game</button></div></div>'}
+ else if(!p){sig='conn';h='<div class="rbox"><h2>Apex Rush</h2><p class="mut">Connecting to the screen...</p></div>'}
+ else if(p.ph==='setup'){
+  const tn=p.tn||[],rd=p.rd||[],ready=rd.includes(id);
+  sig=JSON.stringify(['s',p1,p.trk,p.laps,p.bots,rd.length,ready,tn.length]);
+  if(p1)h='<div class="rbox"><h2>Race setup</h2><div class="rrw"><small>TRACK</small>'+tn.map((n,i)=>'<button class="rb'+(i===p.trk?' sel':'')+'" data-a="trk" data-v="'+i+'">'+rEsc(n)+'</button>').join('')+'</div>'+
+   '<div class="rrw"><small>LAPS</small><button class="rb" data-a="laps" data-v="-1">-</button><span class="rnum">'+p.laps+'</span><button class="rb" data-a="laps" data-v="1">+</button></div>'+
+   '<div class="rrw"><small>BOTS</small><button class="rb" data-a="bots" data-v="-1">-</button><span class="rnum">'+p.bots+'</span><button class="rb" data-a="bots" data-v="1">+</button></div>'+
+   '<p class="mut" style="font-size:12px">'+rd.length+' of '+Math.max(0,(p.n||1)-1)+' others ready</p><div class="rrw"><button class="rb big sel" data-a="start">START RACE</button></div></div>';
+  else h='<div class="rbox"><h2>'+rEsc(tn[p.trk]||'Apex Rush')+'</h2><p class="mut">'+p.laps+' laps &middot; '+p.bots+' bots<br>Player 1 is choosing the race</p><div class="rrw"><button class="rb big'+(ready?' sel':'')+'" data-a="ready">'+(ready?'READY!':'READY')+'</button></div></div>'}
+ else if(p.ph==='results'){const rs=p.res||[];sig='r'+JSON.stringify(rs.map(r=>[r.id,r.t]))+p1;
+  h='<div class="rbox"><h2>Results</h2><div class="rtbl">'+rs.slice(0,6).map(r=>'<div'+(r.id===id?' class="me"':'')+' style="--c:'+rEsc(r.color)+'"><b>'+r.pos+'</b><i></i><span>'+rEsc(r.name)+'</span><em>'+rFmt(r.t)+'</em><small>'+rFmt(r.best)+'</small></div>').join('')+'</div>'+
+   (p1?'<div class="rrw"><button class="rb big sel" data-a="again">Race again</button><button class="rb big" data-a="leave">Menu</button></div>':'<p class="mut">Waiting for Player 1</p>')+'</div>'}
+ else if(p.ph==='paused'){sig='p'+p1;h='<div class="rbox"><h2>Paused</h2>'+(p1?'<div class="rrw"><button class="rb big sel" data-a="pause">Resume</button></div>':'<p class="mut">Waiting for Player 1</p>')+'</div>'}
+ else{el.classList.add('hide');RS.sig='';return}
+ el.classList.remove('hide');if(sig!==RS.sig){RS.sig=sig;el.innerHTML=h}}
+$('rpanel').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,v=+b.dataset.v,p=RS.g||{};buzz(14);
+ if(a==='back'){R.menu=false;rPanel()}
+ else if(a==='leave'){R.menu=false;out({t:'btn',k:'select',d:1});out({t:'btn',k:'select',d:0})}   // same message the Select button sends
+ else if(a==='trk')rout({a:'setup',trk:v,laps:p.laps,bots:p.bots})
+ else if(a==='laps')rout({a:'setup',trk:p.trk,laps:rclamp((p.laps||3)+v,1,5),bots:p.bots})
+ else if(a==='bots')rout({a:'setup',trk:p.trk,laps:p.laps,bots:rclamp((p.bots||0)+v,0,7)})
+ else if(a==='start'||a==='ready'||a==='again'||a==='pause'){rout({a});if(a==='pause')R.menu=false}});
+// ---- state from the screen
+function racingState(p){
+ const prev=RS.g;RS.g=p;if(view!=='racing')return;
+ const me=p.cars&&p.cars[id],c=COLORS[Math.max(slot,0)];
+ $('racing').classList.toggle('spec',!me&&(p.ph==='race'||p.ph==='count'||p.ph==='grid'));
+ $('rmenu').classList.toggle('hide',slot!==0);
+ $('rspd').textContent=me?Math.round(me[2]):0;
+ $('rgear').textContent=me?(me[3]<0?'R':me[3]===0?'N':me[3]):'N';
+ $('rpl').textContent=me?'P'+me[0]+'/'+p.n+'  \u00b7  LAP '+Math.min(me[1],p.laps)+'/'+p.laps:(p.ph==='setup'?'':'SPECTATING');
+ // countdown + haptics
+ if(p.ph==='count'&&p.cd!==RS.cd){RS.cd=p.cd;$('rcd').textContent=p.cd>0?p.cd:'GO';buzz(p.cd>0?30:[90,40,160]);}
+ if(p.ph==='race'&&RS.cd!==-1){RS.cd=-1;setTimeout(()=>{if(RS.cd===-1)$('rcd').textContent=''},700)}
+ if(p.ph==='setup'||p.ph==='results'){RS.cd=-1;$('rcd').textContent=''}
+ const hit=p.hit&&p.hit[id];if(hit!=null&&hit!==RS.hit){if(RS.hit!==-1)buzz([40,30,70]);RS.hit=hit}
+ if(p.ph==='finish'&&prev&&prev.ph!=='finish')buzz([60,50,60,50,160]);
+ rPanel()}
+// called by show() whenever the racing view opens: clear stale local state
+function rReset(){RS.g=null;RS.sig='';RS.cd=-1;RS.hit=-1;R.menu=false;$('rcd').textContent='';$('rpanel').classList.add('hide')}
+document.addEventListener('contextmenu',e=>e.preventDefault());
+</script></body></html>
