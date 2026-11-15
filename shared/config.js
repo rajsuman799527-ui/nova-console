@@ -9,6 +9,7 @@ window.CFG = {
     { id: 'arena', name: 'Rocket Arena', tag: 'Car ball, 2 to 4 players' },
     { id: 'flappy', name: 'Sky Dash 3D', tag: 'Last bird flying wins, 2 to 5 players' },
     { id: 'carrom', name: 'Carrom', tag: 'Strike and pocket, 2 to 4 players', pad: 'carrom' },
+    { id: 'racing', name: 'Apex Rush', tag: 'Real racing, 1 to 5 players', pad: 'racing' },
     { id: 'test', name: 'Test Arena', tag: 'Try your controller' }
   ]
 };
