@@ -5,8 +5,6 @@ window.CFG = {
   MAX_PLAYERS: 5,
   COLORS: ['#8b6cff', '#00e0a4', '#ff5c8a', '#ffb020', '#2ec5ff'],
   GAMES: [
-    { id: 'kart', name: 'Pingbin Kart', tag: 'Racing, 1 to 5 players' },
-    { id: 'arena', name: 'Rocket Arena', tag: 'Car ball, 2 to 4 players' },
     { id: 'flappy', name: 'Sky Dash 3D', tag: 'Last bird flying wins, 2 to 5 players' },
     { id: 'carrom', name: 'Carrom', tag: 'Strike and pocket, 2 to 4 players', pad: 'carrom' },
     { id: 'racing', name: 'Apex Rush', tag: 'Real racing, 1 to 5 players', pad: 'racing' },
