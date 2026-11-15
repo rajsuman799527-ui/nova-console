@@ -61,7 +61,11 @@ function gameSync(){
  $('cv').style.display=(mode==='game'&&!want)?'':'none';   // test arena for every game without a module
  gx.style.display=want?'block':'none';                      // must be visible BEFORE start() so it has a size
  if(live&&live!==want){try{window.NovaGames[live].stop()}catch(e){console.error(e)}live=null}
- if(want&&!live){try{window.NovaGames[want].start(gameCtx);live=want}catch(e){console.error(e)}}}
+ if(want&&!live){try{window.NovaGames[want].start(gameCtx);live=want}catch(e){console.error(e);err('Game start error: '+(e&&e.message||e))}}
+ if(mode==='game'&&game&&game!=='test'&&!want)err('Game file not loaded for "'+game+'" (check games/'+game+'.js path)');
+ if(mode==='game'&&want&&typeof THREE==='undefined')err('three.js did not load (internet/CDN blocked?)')}
+function err(m){const e=$('st');e.textContent=m;e.style.color='#ff5c8a';e.style.maxWidth='60vw'}
+window.addEventListener('error',ev=>err('Error: '+ev.message+' ('+String(ev.filename||'').split('/').pop()+':'+ev.lineno+')'));
 function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');gameSync();cast()}
 function render(){
  $('dock').innerHTML=Array.from({length:MAX_PLAYERS},(_,i)=>{const p=players[i];return `<div class="slot glass ${p?'on':''}" style="--c:${COLORS[i]}"><i></i>Player ${i+1}${i===0&&p?' <small>Remote</small>':''}</div>`}).join('');
