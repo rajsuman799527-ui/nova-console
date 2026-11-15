@@ -26,7 +26,7 @@ body.ingame header,body.ingame footer{display:none}
 body.ingame main>section#game{position:fixed;inset:0;z-index:20}
 body.ingame #cv,body.ingame #gx{border-radius:0;border:0}
 body.ingame.mod #game .hint{display:none}
-#fs{position:fixed;right:14px;bottom:14px;z-index:30;padding:10px 16px;font-size:13px;color:var(--mut);opacity:.0;transition:.3s;pointer-events:none}
+#fs{position:fixed;right:14px;bottom:14px;z-index:30;padding:10px 16px;font-size:13px;color:var(--mut);opacity:0;transition:.3s;pointer-events:none}
 body.ingame:not(.isfs) #fs{opacity:.85}
 #dock{display:flex;gap:1.2vw;justify-content:center}
 .slot{padding:12px 22px;display:flex;align-items:center;gap:12px;font-weight:600;font-size:clamp(13px,1.2vw,20px);opacity:.35;transition:.3s}
@@ -47,6 +47,7 @@ body.ingame:not(.isfs) #fs{opacity:.85}
 <script src="../shared/config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../games/flappy3d.js"></script>
+<script src="../games/carrom.js"></script>
 <script>
 const {SUPABASE_URL,SUPABASE_ANON_KEY,MAX_PLAYERS,COLORS,GAMES}=CFG,$=id=>document.getElementById(id);
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:60}}});
@@ -63,15 +64,15 @@ const cast=()=>send('roster',{players,mode,game,full:window.full||[]});
 // ---- Game host: starts/stops games that register themselves in window.NovaGames[id] ----
 const gx=$('gx'),ZERO={k:{},L:{x:0,y:0}};let live=null;
 const gameCtx={get container(){return gx},get players(){return players},colors:COLORS,
- input:s=>S[s]||ZERO,exit:()=>{game=null;show('menu')}};
+ input:s=>S[s]||ZERO,send:(e,p)=>send(e,p),exit:()=>{game=null;show('menu')}};
 function gameSync(){
  const want=(mode==='game'&&game&&window.NovaGames&&window.NovaGames[game])?game:null;
  $('cv').style.display=(mode==='game'&&!want)?'':'none';   // test arena for every game without a module
  gx.style.display=want?'block':'none';document.body.classList.toggle('mod',!!want);                      // must be visible BEFORE start() so it has a size
  if(live&&live!==want){try{window.NovaGames[live].stop()}catch(e){console.error(e)}live=null}
  if(want&&!live){try{window.NovaGames[want].start(gameCtx);live=want}catch(e){console.error(e);err('Game start error: '+(e&&e.message||e))}}
- if(mode==='game'&&game&&game!=='test'&&!want)err('Game file not loaded for "'+game+'" (check games/'+game+'.js path)');
- if(mode==='game'&&want&&typeof THREE==='undefined')err('three.js did not load (internet/CDN blocked?)')}
+ if(mode==='game'&&game&&game!=='test'&&!want)err('Game file not loaded for "'+game+'"');
+ if(mode==='game'&&want&&game==='flappy'&&typeof THREE==='undefined')err('three.js did not load')}
 function err(m){const e=$('st');e.textContent=m;e.style.color='#ff5c8a';e.style.cssText+=';position:fixed;top:10px;left:10px;z-index:99;background:#000;padding:8px 12px;border-radius:10px;display:block'}
 window.addEventListener('error',ev=>err('Error: '+ev.message+' ('+String(ev.filename||'').split('/').pop()+':'+ev.lineno+')'));
 function show(m){mode=m;['lobby','menu','game'].forEach(s=>$(s).classList.toggle('hide',s!==m));$('chip').classList.toggle('hide',m==='lobby');document.body.classList.toggle('ingame',m==='game');gameSync();cast()}
@@ -94,6 +95,8 @@ ch.on('broadcast',{event:'hello'},({payload:m})=>{if(!seen[m.id])seen[m.id]={id:
 setInterval(sync,2000);
 ch.on('broadcast',{event:'in'},({payload:m})=>{
  const p=players.find(p=>p.id===m.id);if(!p)return;const s=p.slot,st=S[s];
+ // generic game message (carrom etc.): forward to the running game module
+ if(m.t==='g'){if(mode==='game'&&live){const g=window.NovaGames[live];if(g&&g.onInput)try{g.onInput(s,m)}catch(e){console.error(e)}}return}
  if(m.t==='stick'&&m.s==='L')st.L={x:m.x,y:m.y};
  if(m.t==='btn'){st.k[m.k]=m.d;if(!m.d)return;
   // d=1 edge: hand the press to the running game so a quick tap is never missed
